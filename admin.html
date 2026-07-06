@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#080c18">
+  <title>MTO HVAC — Panel Administrativo · Camioneta</title>
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="styles.css">
+
+  <style>
+    body { background: var(--bg-primary); }
+    .admin-wrapper { max-width: 1200px; margin: 0 auto; padding: var(--space-6) var(--space-6); position: relative; z-index: 1; }
+    @media(max-width:600px){ .admin-wrapper { padding: var(--space-3); } }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-8); flex-wrap: wrap; gap: var(--space-4); }
+    .page-title { font-size: var(--fs-2xl); font-weight: 800; letter-spacing: -0.04em; }
+    .page-subtitle { font-size: var(--fs-sm); color: var(--text-muted); margin-top: 2px; }
+
+    .tab-bar { display: flex; gap: 2px; background: var(--bg-glass); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 4px; margin-bottom: var(--space-6); width: fit-content; flex-wrap: wrap; }
+    .tab-btn { padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); font-size: var(--fs-sm); font-weight: 600; color: var(--text-muted); background: none; border: none; cursor: pointer; font-family: var(--font-sans); transition: all var(--transition-fast); white-space: nowrap; }
+    .tab-btn.active { background: var(--bg-card); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; animation: screenIn 0.3s ease; }
+
+    .employee-card { background: var(--bg-card); border: 1px solid var(--border-default); border-radius: var(--radius-xl); padding: var(--space-5); backdrop-filter: blur(20px); transition: all var(--transition-normal); }
+    .employee-card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .employee-avatar { width: 48px; height: 48px; border-radius: 50%; background: var(--accent-gradient); display: grid; place-items: center; font-size: var(--fs-lg); font-weight: 700; flex-shrink: 0; }
+    .employees-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6); }
+
+    .rank-num { font-size: var(--fs-lg); font-weight: 800; width: 32px; }
+    .rank-1 { color: #fbbf24; } .rank-2 { color: #94a3b8; } .rank-3 { color: #cd7f32; }
+
+    #photoModal, #mapModal { display:none; }
+    #photoModal.open, #mapModal.open { display:flex; }
+    #adminMap { width: 100%; height: 320px; border-radius: var(--radius-lg); overflow: hidden; }
+
+    #adminLogin { min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
+    .login-card { max-width: 380px; width: 100%; padding: var(--space-8); }
+
+    .export-row { display:flex; gap:var(--space-2); flex-wrap:wrap; }
+
+    .vehicle-hero { display:flex; align-items:center; gap:var(--space-5); flex-wrap:wrap; }
+    .vehicle-hero .vh-icon { width:64px;height:64px;border-radius:var(--radius-xl);background:var(--accent-gradient);display:grid;place-items:center;font-size:1.8rem;box-shadow:var(--shadow-glow); }
+  </style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+
+<!-- ══════════════ LOGIN ══════════════ -->
+<div id="adminLogin">
+  <div class="card login-card" style="backdrop-filter:blur(30px);">
+    <div style="text-align:center; margin-bottom:var(--space-6);">
+      <div style="font-size:2.5rem; margin-bottom:var(--space-3);">🔐</div>
+      <h1 style="font-size:var(--fs-xl); font-weight:800; letter-spacing:-0.03em;">Panel Admin</h1>
+      <p style="font-size:var(--fs-sm); color:var(--text-muted); margin-top:var(--space-1);">Control de Camioneta — MTO Servicios HVAC</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label">PIN de acceso</label>
+      <input type="password" class="form-input" id="adminPinInput" placeholder="••••••" maxlength="8"
+        onkeydown="if(event.key==='Enter') adminApp.login()">
+    </div>
+    <button class="btn btn-primary btn-full btn-lg" onclick="adminApp.login()">
+      Ingresar
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+    <p style="font-size:var(--fs-xs); color:var(--text-muted); text-align:center; margin-top:var(--space-4);">
+      PIN por defecto: <code style="font-family:var(--font-mono); background:var(--bg-glass); padding:1px 6px; border-radius:4px;">1234</code><br>
+      Cambiarlo en <code style="font-family:var(--font-mono)">Codigo.gs</code> → <code style="font-family:var(--font-mono)">ADMIN_PIN</code>
+    </p>
+  </div>
+</div>
+
+<!-- ══════════════ DASHBOARD ══════════════ -->
+<div id="adminDashboard" style="display:none;">
+<div class="admin-wrapper">
+
+  <!-- Header -->
+  <div class="page-header">
+    <div>
+      <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom:4px;">
+        <div class="logo-icon" style="width:36px;height:36px;font-size:1rem;">🚐</div>
+        <h1 class="page-title">Control de Camioneta</h1>
+      </div>
+      <p class="page-subtitle" id="dashSubtitle">MTO Servicios HVAC · Cargando datos...</p>
+    </div>
+    <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; align-items:center;">
+      <button class="btn btn-ghost btn-sm" onclick="adminApp.loadData()" id="btnRefresh">🔄 Actualizar</button>
+      <div class="export-row">
+        <button class="btn btn-ghost btn-sm" onclick="adminApp.exportCSV()">⬇️ CSV</button>
+        <button class="btn btn-ghost btn-sm" onclick="adminApp.exportPDF()">📄 PDF</button>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="adminApp.logout()">Salir</button>
+    </div>
+  </div>
+
+  <!-- Estado actual (hero) -->
+  <div class="card" style="margin-bottom:var(--space-6);">
+    <div class="vehicle-hero">
+      <div class="vh-icon">🚐</div>
+      <div style="flex:1; min-width:220px;">
+        <div style="display:flex; align-items:center; gap:var(--space-3); flex-wrap:wrap;">
+          <span id="vhBadge" class="vehicle-badge-lg available">🟢 Disponible</span>
+          <span id="vhElapsed" class="badge badge-gray" style="display:none;"></span>
+        </div>
+        <div id="vhDetails" style="margin-top:var(--space-3); display:none; font-size:var(--fs-sm); color:var(--text-secondary);"></div>
+      </div>
+      <div id="vhActions" style="display:none;">
+        <button class="btn btn-warning btn-sm" onclick="adminApp.openManualClose()">🔒 Cerrar viaje manualmente</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alertas de vencimientos -->
+  <div id="expiryAlertPanel"></div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="statsGrid">
+    <div class="stat-card">
+      <div class="stat-label">Viajes totales</div>
+      <div class="stat-value" id="statTrips" style="background:var(--accent-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">—</div>
+      <div class="stat-change" id="statTripsChange">Cargando...</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Km recorridos</div>
+      <div class="stat-value" id="statKm">—</div>
+      <div class="stat-change">Histórico</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Promedio diario</div>
+      <div class="stat-value" id="statAvgDaily">—</div>
+      <div class="stat-change">Km / día con uso</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Horas de uso</div>
+      <div class="stat-value" id="statHours" style="color:var(--accent-info);">—</div>
+      <div class="stat-change">Acumuladas</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Top usuario</div>
+      <div class="stat-value" id="statTopUser" style="font-size:var(--fs-lg);">—</div>
+      <div class="stat-change" id="statTopUserCount">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Retiros este mes</div>
+      <div class="stat-value" id="statMonthTrips" style="color:var(--accent-secondary);">—</div>
+      <div class="stat-change" id="statMonthLabel">—</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="adminApp.switchTab('records')"     data-tab="records">📋 Historial</button>
+    <button class="tab-btn"        onclick="adminApp.switchTab('employees')"   data-tab="employees">👥 Empleados</button>
+    <button class="tab-btn"        onclick="adminApp.switchTab('maintenance')" data-tab="maintenance">🔧 Mantenimiento</button>
+    <button class="tab-btn"        onclick="adminApp.switchTab('damages')"     data-tab="damages">⚠️ Daños</button>
+    <button class="tab-btn"        onclick="adminApp.switchTab('charts')"      data-tab="charts">📈 Gráficos</button>
+  </div>
+
+  <!-- TAB: HISTORIAL ───────────────────────────── -->
+  <div class="tab-panel active" id="tabRecords">
+    <div class="filters-row">
+      <input type="text" class="filter-input" id="searchInput" placeholder="🔎 Buscar (empleado, destino, motivo...)" style="min-width:220px;" oninput="adminApp.applyFilters()">
+      <select class="filter-select" id="filterEmployee" onchange="adminApp.applyFilters()">
+        <option value="">Todos los empleados</option>
+      </select>
+      <select class="filter-select" id="filterStatus" onchange="adminApp.applyFilters()">
+        <option value="">Todos los estados</option>
+        <option value="EN_USO">En uso</option>
+        <option value="CERRADO">Cerrado</option>
+        <option value="CERRADO_MANUAL">Cerrado manualmente</option>
+      </select>
+      <input type="text" class="filter-input" id="filterDestino" placeholder="Destino" style="min-width:140px;" oninput="adminApp.applyFilters()">
+      <input type="month" class="filter-select" id="filterMonth" onchange="adminApp.applyFilters()" style="min-width:150px;" title="Mes">
+      <button class="btn btn-ghost btn-sm" onclick="adminApp.clearFilters()">✕ Limpiar</button>
+    </div>
+
+    <div style="font-size:var(--fs-sm); color:var(--text-muted); margin-bottom:var(--space-3);" id="recordsCount">Cargando registros...</div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Estado</th>
+            <th>Empleado</th>
+            <th>Retiro</th>
+            <th>Devolución</th>
+            <th>Destino</th>
+            <th>Km</th>
+            <th>Tiempo</th>
+            <th>Incidente</th>
+            <th>Fotos</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="recordsTable">
+          <tr><td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--text-muted);">
+            <div class="spinner" style="margin:0 auto var(--space-3);"></div>Cargando datos...
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: EMPLEADOS ───────────────────────────── -->
+  <div class="tab-panel" id="tabEmployees">
+    <div style="display:flex; justify-content:flex-end; margin-bottom:var(--space-4);">
+      <button class="btn btn-primary btn-sm" onclick="adminApp.openEmployeeModal()">➕ Nuevo empleado</button>
+    </div>
+    <div class="employees-grid" id="employeesGrid">
+      <div style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:var(--space-8);">
+        <div class="spinner" style="margin:0 auto var(--space-3);"></div>Cargando empleados...
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: MANTENIMIENTO ───────────────────────── -->
+  <div class="tab-panel" id="tabMaintenance">
+    <div style="display:flex; justify-content:flex-end; margin-bottom:var(--space-4);">
+      <button class="btn btn-primary btn-sm" onclick="adminApp.openMaintenanceModal()">➕ Registrar mantenimiento</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Tipo</th><th>Fecha</th><th>Km</th><th>Vencimiento</th><th>Proveedor</th><th>Costo</th><th>Observaciones</th></tr></thead>
+        <tbody id="maintenanceTable">
+          <tr><td colspan="7" style="text-align:center;padding:var(--space-6);color:var(--text-muted);">Sin registros aún.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: DAÑOS ───────────────────────────────── -->
+  <div class="tab-panel" id="tabDamages">
+    <div style="display:flex; justify-content:flex-end; margin-bottom:var(--space-4);">
+      <button class="btn btn-primary btn-sm" onclick="adminApp.openDamageModal()">➕ Nota manual</button>
+    </div>
+    <div id="damagesList"><p style="color:var(--text-muted);">Sin daños registrados.</p></div>
+  </div>
+
+  <!-- TAB: GRÁFICOS ────────────────────────────── -->
+  <div class="tab-panel" id="tabCharts">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-title">Viajes por día (últimos 14 días)</div>
+        <div class="chart-canvas-wrap"><canvas id="chartDaily"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Km recorridos por mes</div>
+        <div class="chart-canvas-wrap"><canvas id="chartKmMonth"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Viajes por empleado</div>
+        <div class="chart-canvas-wrap"><canvas id="chartEmployee"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Retiros por mes</div>
+        <div class="chart-canvas-wrap"><canvas id="chartMonthly"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /admin-wrapper -->
+</div><!-- /adminDashboard -->
+
+<!-- ══════════ MODAL: EMPLEADO ══════════ -->
+<div class="modal-backdrop" id="employeeModal">
+  <div class="card modal-box">
+    <div class="card-title" id="employeeModalTitle">Nuevo empleado</div>
+    <input type="hidden" id="empId">
+    <div class="form-group"><label class="form-label">Nombre completo</label><input type="text" class="form-input" id="empNombre"></div>
+    <div class="form-group"><label class="form-label">Sector</label><input type="text" class="form-input" id="empSector" placeholder="Mantenimiento / Administración / Obras"></div>
+    <div class="form-group"><label class="form-label">PIN (opcional, 4 dígitos)</label><input type="text" class="form-input" id="empPin" maxlength="4" inputmode="numeric"></div>
+    <div class="form-group"><label class="form-label">Email (opcional)</label><input type="email" class="form-input" id="empEmail"></div>
+    <div class="form-group"><label class="form-label">Activo</label>
+      <select class="form-select" id="empActivo"><option value="SI">Sí</option><option value="NO">No</option></select>
+    </div>
+    <div style="display:flex; gap:var(--space-2);">
+      <button class="btn btn-ghost flex-1" onclick="adminApp.closeModal('employeeModal')">Cancelar</button>
+      <button class="btn btn-primary flex-1" onclick="adminApp.saveEmployee()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: MANTENIMIENTO ══════════ -->
+<div class="modal-backdrop" id="maintenanceModal">
+  <div class="card modal-box">
+    <div class="card-title">Registrar mantenimiento</div>
+    <div class="form-group"><label class="form-label">Tipo</label>
+      <select class="form-select" id="mntTipo">
+        <option value="SERVICE">Service</option>
+        <option value="ACEITE">Cambio de aceite</option>
+        <option value="VTV">VTV</option>
+        <option value="SEGURO">Seguro</option>
+        <option value="PATENTE">Patente</option>
+        <option value="OTRO">Otro</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Fecha realizado</label><input type="date" class="form-input" id="mntFecha"></div>
+    <div class="form-group"><label class="form-label">Km realizado</label><input type="number" class="form-input" id="mntKm"></div>
+    <div class="form-group"><label class="form-label">Fecha de vencimiento (si aplica)</label><input type="date" class="form-input" id="mntVencimiento"></div>
+    <div class="form-group"><label class="form-label">Km próximo vencimiento (si aplica)</label><input type="number" class="form-input" id="mntKmVencimiento"></div>
+    <div class="form-group"><label class="form-label">Proveedor / Taller</label><input type="text" class="form-input" id="mntProveedor"></div>
+    <div class="form-group"><label class="form-label">Costo</label><input type="number" class="form-input" id="mntCosto"></div>
+    <div class="form-group"><label class="form-label">Observaciones</label><textarea class="form-textarea" id="mntObs"></textarea></div>
+    <div style="display:flex; gap:var(--space-2);">
+      <button class="btn btn-ghost flex-1" onclick="adminApp.closeModal('maintenanceModal')">Cancelar</button>
+      <button class="btn btn-primary flex-1" onclick="adminApp.saveMaintenance()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: NOTA DE DAÑO MANUAL ══════════ -->
+<div class="modal-backdrop" id="damageModal">
+  <div class="card modal-box">
+    <div class="card-title">Nota de daño manual</div>
+    <div class="form-group"><label class="form-label">Tipo</label>
+      <select class="form-select" id="dmgTipo">
+        <option value="choque">Choque</option><option value="rayon">Rayón</option>
+        <option value="desperfecto">Desperfecto</option><option value="multa">Multa</option><option value="otro">Otro</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Descripción</label><textarea class="form-textarea" id="dmgDesc"></textarea></div>
+    <div class="form-group"><label class="form-label">Costo estimado</label><input type="number" class="form-input" id="dmgCosto"></div>
+    <div class="form-group"><label class="form-label">Estado</label>
+      <select class="form-select" id="dmgEstado"><option value="PENDIENTE">Pendiente</option><option value="EN_REPARACION">En reparación</option><option value="RESUELTO">Resuelto</option></select>
+    </div>
+    <div style="display:flex; gap:var(--space-2);">
+      <button class="btn btn-ghost flex-1" onclick="adminApp.closeModal('damageModal')">Cancelar</button>
+      <button class="btn btn-primary flex-1" onclick="adminApp.saveDamage()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: CIERRE / CAMBIO DE ESTADO MANUAL ══════════ -->
+<div class="modal-backdrop" id="manualCloseModal">
+  <div class="card modal-box">
+    <div class="card-title">Cerrar viaje manualmente</div>
+    <p style="font-size:var(--fs-sm); color:var(--text-secondary); margin-bottom:var(--space-4);">
+      Usalo si el empleado no pudo registrar la devolución desde la app. Queda auditado.
+    </p>
+    <div class="form-group"><label class="form-label">Km al devolver</label><input type="number" class="form-input" id="mcKm"></div>
+    <div class="form-group"><label class="form-label">Motivo del cierre manual</label><textarea class="form-textarea" id="mcMotivo" placeholder="Ej: empleado olvidó registrar la devolución, confirmado telefónicamente."></textarea></div>
+    <div style="display:flex; gap:var(--space-2);">
+      <button class="btn btn-ghost flex-1" onclick="adminApp.closeModal('manualCloseModal')">Cancelar</button>
+      <button class="btn btn-warning flex-1" onclick="adminApp.confirmManualClose()">Cerrar viaje</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ MODAL: DETALLE / TIMELINE DE VIAJE ══════════ -->
+<div class="modal-backdrop" id="tripDetailModal">
+  <div class="card modal-box" style="max-width:560px;">
+    <div class="card-title">Detalle del viaje</div>
+    <div id="tripDetailBody"></div>
+    <button class="btn btn-ghost w-full mt-4" onclick="adminApp.closeModal('tripDetailModal')">Cerrar</button>
+  </div>
+</div>
+
+<!-- ══════════ FOTO / MAPA ══════════ -->
+<div id="photoModal" onclick="this.classList.remove('open')"
+  style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.92);backdrop-filter:blur(12px);align-items:center;justify-content:center;">
+  <img id="photoModalImg" src="" alt="Foto" style="max-width:88vw;max-height:88vh;border-radius:var(--radius-xl);object-fit:contain;box-shadow:var(--shadow-lg);">
+</div>
+
+<div id="mapModal" style="position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);align-items:center;justify-content:center;padding:var(--space-4);">
+  <div class="card" style="max-width:560px; width:100%;">
+    <div class="card-title">Ubicación del viaje</div>
+    <div id="adminMap"></div>
+    <button class="btn btn-ghost w-full mt-4" onclick="document.getElementById('mapModal').classList.remove('open')">Cerrar</button>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#080c18">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MTO Camioneta">
+  <meta name="description" content="Control de uso de camioneta MTO Servicios HVAC">
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚐</text></svg>">
+
+  <title>MTO HVAC — Control de Camioneta</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="bg-mesh"></div>
+
+  <div class="app-wrapper" id="appWrapper">
+
+    <!-- ══════════════════════════════════════════════
+         HEADER
+    ═══════════════════════════════════════════════ -->
+    <header class="app-header">
+      <div class="logo-wrap">
+        <div class="logo-icon">🚐</div>
+        <div class="logo-text">
+          <span class="logo-company">MTO Servicios</span>
+          <span class="logo-tagline">Control de Camioneta</span>
+        </div>
+      </div>
+      <div class="header-time" id="headerTime">--:--</div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════
+         PANTALLA 0 — CARGANDO ESTADO
+    ═══════════════════════════════════════════════ -->
+    <section class="screen active" id="screenLoadingStatus">
+      <div class="loading-screen">
+        <div class="spinner spinner-lg"></div>
+        <div style="text-align:center;">
+          <div style="font-size:var(--fs-lg); font-weight:700; margin-bottom:var(--space-2);">Consultando estado...</div>
+          <div style="font-size:var(--fs-sm); color:var(--text-secondary);">Verificando disponibilidad de la camioneta</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════
+         PANTALLA 1 — BIENVENIDA / ESTADO + SELECCIÓN EMPLEADO
+    ═══════════════════════════════════════════════ -->
+    <section class="screen" id="screenWelcome">
+
+      <div class="hero-welcome" style="padding-top:var(--space-4); padding-bottom:var(--space-4);">
+        <div class="hero-icon">🚐</div>
+        <h1 class="hero-title">Control de<br>Camioneta</h1>
+      </div>
+
+      <!-- Banner de estado -->
+      <div class="card card-sm" id="statusBanner" style="text-align:center; margin-bottom:var(--space-4);">
+        <span class="vehicle-status-dot available" id="statusDot"></span>
+        <span class="vehicle-badge-lg available" id="statusBadge">🟢 Disponible</span>
+        <div id="statusExtra" class="vehicle-inuse-details hidden"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">¿Quién sos?</div>
+        <div class="form-group">
+          <label class="form-label" for="employeeSelect">👤 Empleado</label>
+          <select class="form-select" id="employeeSelect">
+            <option value="">— Seleccioná tu nombre —</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary btn-full btn-lg mt-4" onclick="app.checkAndContinue()">
+          Continuar
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════
+         PANTALLA 2 — BLOQUEADO (otra persona la tiene)
+    ═══════════════════════════════════════════════ -->
+    <section class="screen" id="screenBlocked">
+      <div class="card" style="text-align:center;">
+        <div style="font-size:2.5rem; margin-bottom:var(--space-3);">🔴</div>
+        <h2 style="font-size:var(--fs-xl); font-weight:700; margin-bottom:var(--space-2);">Camioneta en uso</h2>
+        <p style="font-size:var(--fs-sm); color:var(--text-secondary); margin-bottom:var(--space-5);">
+          No podés retirarla hasta que sea devuelta.
+        </p>
+        <div class="vehicle-inuse-details" style="margin-top:0;">
+          <div class="vehicle-inuse-row"><span class="key">👤 La tiene</span><span class="val" id="blockedEmployee">—</span></div>
+          <div class="vehicle-inuse-row"><span class="key">🕐 Hora de salida</span><span class="val" id="blockedTime">—</span></div>
+          <div class="vehicle-inuse-row"><span class="key">📍 Destino</span><span class="val" id="blockedDestino">—</span></div>
+          <div class="vehicle-inuse-row"><span class="key">⏱️ Tiempo transcurrido</span><span class="val" id="blockedElapsed">—</span></div>
+        </div>
+      </div>
+      <button class="btn btn-ghost w-full mt-4" onclick="app.goBack('screenWelcome')">← Volver</button>
+    </section>
+
+    <!-- ══════════════════════════════════════════════
+         PANTALLA 3 — DATOS (retiro o devolución, según flujo)
+    ═══════════════════════════════════════════════ -->
+    <section class="screen" id="screenDatos">
+
+      <div class="steps" id="stepsIndicator">
+        <div class="step active" id="step1"><div class="step-dot">1</div><div class="step-label">Datos</div></div>
+        <div class="step-line" id="stepLine1"></div>
+        <div class="step" id="step2"><div class="step-dot">2</div><div class="step-label">Check</div></div>
+        <div class="step-line" id="stepLine2"></div>
+        <div class="step" id="step3"><div class="step-dot">3</div><div class="step-label">Fotos</div></div>
+        <div class="step-line" id="stepLine3"></div>
+        <div class="step" id="step4"><div class="step-dot">4</div><div class="step-label">Confirmar</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" id="datosTitle">Retirar camioneta</div>
+        <div style="font-size:var(--fs-sm); color:var(--text-secondary); margin-bottom:var(--space-4);" id="datosEmployeeLabel"></div>
+
+        <!-- Campos exclusivos de RETIRO -->
+        <div id="retiroFields">
+          <div class="form-group">
+            <label class="form-label" for="sectorInput">🏷️ Sector</label>
+            <input type="text" class="form-input" id="sectorInput" placeholder="Ej: Mantenimiento" maxlength="60">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="destinoInput">📍 Destino</label>
+            <input type="text" class="form-input" id="destinoInput" placeholder="Ej: Obra Av. Corrientes 1234" maxlength="120">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="motivoInput">📝 Motivo del viaje</label>
+            <input type="text" class="form-input" id="motivoInput" placeholder="Ej: Traslado de materiales" maxlength="150">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="kmInput">🧭 Kilometraje actual</label>
+          <input type="number" class="form-input" id="kmInput" placeholder="Ej: 84210" min="0" inputmode="numeric">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="fuelInput">⛽ Nivel de combustible</label>
+          <select class="form-select" id="fuelInput">
+            <option value="Lleno">Lleno</option>
+            <option value="3/4">3/4</option>
+            <option value="1/2" selected>1/2</option>
+            <option value="1/4">1/4</option>
+            <option value="Reserva">Reserva</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="estadoInput">🔧 Estado general</label>
+          <select class="form-select" id="estadoInput">
+            <option value="Óptimo">Óptimo</option>
+            <option value="Bueno" selected>Bueno</option>
+            <option value="Regular">Regular</option>
+            <option value="Con observaciones">Con observaciones</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary btn-full btn-lg mt-4" onclick="app.goToChecklist()">
+          Continuar
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <button class="btn btn-ghost w-full mt-4" onclick="app.goBack('screenWelcome')">← Volver</button>
+    </section>
+
+    <!-- ══════════════════════════════════════════════
+         PANTALLA 4 — CHECKLIST
+    ═══════════════════════════════════════════════ -->
+    <section class="screen" id="screenChecklist">
+      <div class="steps">
+        <div class="step done" id="cstep1"><div class="step-dot">✓</div><div class="step-label">Datos</div></div>
+        <div class="step-line done"></div>
+        <div class="step active" id="cstep2"><div class="step-dot">2</div><div class="step-label">Check</div></div>
+        <div class="step-line" id="cstepLine2"></div>
+        <div class="step" id="cstep3"><div class="step-dot">3</div><div class="step-label">Fotos</div></div>
+        <div class="step-line" id="cstepLine3"></div>
+        <div class="step" id="cstep4"><div class="step-dot">4</div><div class="step-label">Confirmar</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Checklist de la unidad</div>
+        <p style="font-size:var(--fs-sm); color:var(--text-secondary); margin-bottom:var(--space-4);">
+          Marcá cada ítem verificado antes de continuar.
+        </p>
+        <div class="checklist" id="checklistContainer"><!-- generado por JS --></div>
+
+        <button class="btn btn-primary btn-full btn-lg mt-4" id="btnChecklistNext" onclick="app.goToFotos()">
+          Continuar
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <button class="btn btn-ghost w-full mt-4" onclick="app.goBack('screenDatos')">← Volver</button>
+    </section>
+
+    <!-- ══════════════════════════════════════════════
+         PANTALLA 5 — FOTOS
+    ═══════════════════════════════════════════════ -->
+    <section class="screen" id="screenFotos">
+      <div class="steps">
+        <div class="step done"><div class="step-dot">✓</div><div class="step-label">Datos</div></div>
+        <div class="step-line done"></div>
+        <div class="step done"><div class="step-dot">✓</div><div class="step-label">Check</div></div>
+        <div class="step-line done"></div>
+        <div class="step active"><div class="step-dot">3</div><div class="step-label">Fotos</div></div>
+        <div class="step-line" id="fstepLine4"></div>
+        <div class="step" id="fstep4"><div class="step-dot">4</div><div class="step-label">Confirmar</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Evidencia fotográfica</div>
+        <p style="font-size:var(--fs-sm); color:var(--text-secondary); margin-bottom:var(--space-2);" id="fotosSubtitle">
+          Tomá las 4 fotos obligatorias. Podés agregar más si es necesario.
+        </p>
+
+        <div class="photo-grid" id="photoGrid"><!-- generado por JS --></div>
+
+        <div class="photo-extra-add" onclick="app.addExtraPhotoSlot()">
+          ➕ Agregar otra foto (opcional)
+        </div>
+
+        <button class="btn btn-primary btn-full btn-lg mt-4" id="btnFotosNext" onclick="app.goToConfirm()" disabled>
+          Continuar
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+      <button class="btn btn-ghost w-full mt-4" onclick="app.goBack('screenChecklist')">← Volver</button>
+    </section>
+
+    <!-- ══════════════════════════════════════════════
+         PANTALLA 6 — CONFIRMAR (+ inconveniente si es devolución)
+    ═══════════════════════════════════════════════ -->
+    <section class="screen" id="screenConfirm">
+      <div class="steps">
+        <div class="step done"><div class="step-dot">✓</div><div class="step-label">Datos</div></div>
+        <div class="step-line done"></div>
+        <div class="step done"><div class="step-dot">✓</div><div class="step-label">Check</div></div>
+        <div class="step-line done"></div>
+        <div class="step done"><div class="step-dot">✓</div><div class="step-label">Fotos</div></div>
+        <div class="step-line done"></div>
+        <div class="step active"><div class="step-dot">4</div><div class="step-label">Confirmar</div></div>
+      </div>
+
+      <!-- Sólo en devolución -->
+      <div class="card" id="incidentCard" style="display:none;">
+        <div class="card-title">¿Hubo algún inconveniente?</div>
+        <div class="yesno-toggle">
+          <button class="yesno-btn no active" id="btnIncidentNo" onclick="app.setIncident(false)">✓ No</button>
+          <button class="yesno-btn yes" id="btnIncidentYes" onclick="app.setIncident(true)">⚠️ Sí</button>
+        </div>
+        <div class="incident-box hidden" id="incidentDetail">
+          <div class="form-group">
+            <label class="form-label" for="incidentType">Tipo de inconveniente</label>
+            <select class="form-select" id="incidentType">
+              <option value="choque">Choque</option>
+              <option value="rayon">Rayón</option>
+              <option value="desperfecto">Desperfecto mecánico</option>
+              <option value="multa">Multa</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label" for="incidentDesc">Descripción</label>
+            <textarea class="form-textarea" id="incidentDesc" placeholder="Describí lo ocurrido con el mayor detalle posible..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Observaciones</div>
+        <div class="form-group" style="margin-bottom:0;">
+          <textarea class="form-textarea" id="observationInput" placeholder="Observaciones adicionales (opcional)"></textarea>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Firma digital del conductor</div>
+        <div class="signature-wrap">
+          <canvas id="signatureCanvas"></canvas>
+          <div class="signature-hint" id="signatureHint">Firmá acá con el dedo</div>
+        </div>
+        <button class="btn btn-ghost btn-sm mt-2" onclick="app.clearSignature()">🧹 Limpiar firma</button>
+      </div>
+
+      <div class="card" style="background:var(--bg-glass); border-color:var(--border-subtle);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span style="font-size:var(--fs-xs); color:var(--text-muted);">📍 Ubicación GPS</span>
+          <span style="font-size:var(--fs-sm); font-weight:600;" id="summaryGPS">Obteniendo...</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:var(--fs-xs); color:var(--text-muted);">🕐 Hora actual</span>
+          <span style="font-size:var(--fs-sm); font-weight:600; font-variant-numeric:tabular-nums;" id="summaryTime">—</span>
+        </div>
+      </div>
+
+      <button class="btn btn-success btn-full btn-lg mt-4" id="btnConfirmSubmit" onclick="app.submitTrip()">
+        <span id="btnConfirmLabel">✓ Confirmar</span>
+      </button>
+      <button class="btn btn-ghost w-full mt-4" onclick="app.goBack('screenFotos')">← Volver</button>
+    </section>
+
+    <!-- ══════════════════════════════════════════════
+         PANTALLA 7 — ENVIANDO
+    ═══════════════════════════════════════════════ -->
+    <section class="screen" id="screenLoadingSubmit">
+      <div class="loading-screen">
+        <div class="spinner spinner-lg"></div>
+        <div style="text-align:center;">
+          <div style="font-size:var(--fs-lg); font-weight:700; margin-bottom:var(--space-2);" id="loadingTitle">Registrando...</div>
+          <div style="font-size:var(--fs-sm); color:var(--text-secondary);" id="loadingMsg">Subiendo datos y fotos ☁️</div>
+        </div>
+        <div style="width:180px;">
+          <div class="progress-wrap"><div class="progress-bar" id="loadingProgress" style="width:0%"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════
+         PANTALLA 8 — RESULTADO
+    ═══════════════════════════════════════════════ -->
+    <section class="screen" id="screenResult">
+      <div class="card">
+        <div class="result-card" id="resultCard"><!-- dinámico --></div>
+      </div>
+      <button class="btn btn-ghost w-full mt-4" onclick="app.resetToStart()">↩ Volver al inicio</button>
+    </section>
+
+  </div><!-- /app-wrapper -->
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Modal visor de foto -->
+  <div id="photoModal" style="
+    display:none; position:fixed; inset:0; z-index:9998;
+    background:rgba(0,0,0,0.9); backdrop-filter:blur(10px);
+    align-items:center; justify-content:center;
+  " onclick="this.style.display='none'">
+    <img id="photoModalImg" src="" alt="Foto" style="max-width:90%; max-height:90%; border-radius:var(--radius-xl); object-fit:contain;">
+  </div>
+
+  <!-- Inputs de archivo ocultos para captura de fotos -->
+  <input type="file" id="hiddenPhotoInput" accept="image/*" capture="environment" style="display:none;">
+
+  <script src="app.js"></script>
+</body>
+</html>
