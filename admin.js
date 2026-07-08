@@ -81,6 +81,14 @@ const adminUtils = {
     return { lat, lng };
   },
   safeJSON(str, fallback) { try { return JSON.parse(str); } catch(e) { return fallback; } },
+  // Convierte una URL de Drive tipo "file/d/ID/view" (no renderizable como <img>)
+  // en una URL de miniatura directa que sí puede usarse como src de imagen.
+  driveImgUrl(url, size) {
+    if (!url) return '';
+    const m = /\/d\/([a-zA-Z0-9_-]{10,})/.exec(url) || /[?&]id=([a-zA-Z0-9_-]{10,})/.exec(url);
+    const id = m ? m[1] : null;
+    return id ? `https://drive.google.com/thumbnail?id=${id}&sz=${size || 'w1000'}` : url;
+  },
 };
 
 /* ──────────────────────────────────────────────────────────────
@@ -510,7 +518,7 @@ const adminApp = {
         <td>${t.kmRecorridos ? t.kmRecorridos + ' km' : '—'}</td>
         <td>${t.tiempoUso || '—'}</td>
         <td>${t.huboInconveniente ? `<span class="badge badge-red" title="${t.descripcionInconveniente}">⚠️ ${ADMIN_CONFIG.INCIDENT_LABELS[t.tipoInconveniente]||t.tipoInconveniente}</span>` : '<span class="badge badge-green">✓</span>'}</td>
-        <td><div class="photo-thumb-row">${[...t.fotosRetiro, ...t.fotosDevolucion].slice(0,3).map(u => `<img src="${u}" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`).join('')}</div></td>
+        <td><div class="photo-thumb-row">${[...t.fotosRetiro, ...t.fotosDevolucion].slice(0,3).map(u => `<img src="${adminUtils.driveImgUrl(u,'w200')}" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`).join('')}</div></td>
         <td style="white-space:nowrap;">
           <button class="btn btn-ghost btn-sm" onclick="adminApp.openTripDetail('${t.id}')" title="Ver detalle">👁️</button>
           ${(t.gpsRetiro || t.gpsDevolucion) ? `<button class="btn btn-ghost btn-sm" onclick="adminApp.openMap('${t.id}')" title="Ver mapa">🗺️</button>` : ''}
@@ -551,7 +559,7 @@ const adminApp = {
       <div class="mt-4">
         <div class="card-title">Fotos</div>
         <div class="photo-thumb-row" style="flex-wrap:wrap;gap:6px;">
-          ${[...t.fotosRetiro, ...t.fotosDevolucion].map(u => `<img src="${u}" style="width:52px;height:52px;border-radius:8px;" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`).join('')}
+          ${[...t.fotosRetiro, ...t.fotosDevolucion].map(u => `<img src="${adminUtils.driveImgUrl(u,'w400')}" style="width:52px;height:52px;border-radius:8px;object-fit:cover;" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`).join('')}
         </div>
       </div>` : ''}
     `;
@@ -560,7 +568,7 @@ const adminApp = {
   },
 
   openPhoto(url) {
-    document.getElementById('photoModalImg').src = url;
+    document.getElementById('photoModalImg').src = adminUtils.driveImgUrl(url, 'w1600');
     document.getElementById('photoModal').classList.add('open');
   },
 
