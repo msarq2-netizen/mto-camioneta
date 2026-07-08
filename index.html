@@ -48,6 +48,7 @@
         <div style="text-align:center;">
           <div style="font-size:var(--fs-lg); font-weight:700; margin-bottom:var(--space-2);">Consultando estado...</div>
           <div style="font-size:var(--fs-sm); color:var(--text-secondary);">Verificando disponibilidad de la camioneta</div>
+          <div id="loadingStatusHint" class="hidden" style="font-size:var(--fs-xs); color:var(--text-muted); margin-top:var(--space-3);">Puede tardar unos segundos la primera vez del día...</div>
         </div>
       </div>
     </section>
@@ -351,6 +352,6 @@
   <!-- Inputs de archivo ocultos para captura de fotos -->
   <input type="file" id="hiddenPhotoInput" accept="image/*" capture="environment" style="display:none;">
 
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

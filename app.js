@@ -280,9 +280,18 @@ const signaturePad = {
 const api = {
   async getStatus() {
     const url = `${CONFIG.APPS_SCRIPT_URL}?action=status&ts=${Date.now()}`;
-    const resp = await fetch(url);
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    return resp.json();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    try {
+      const resp = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.json();
+    } catch (err) {
+      clearTimeout(timeout);
+      if (err.name === 'AbortError') throw new Error('El servidor tardó demasiado en responder.');
+      throw err;
+    }
   },
 
   async send(action, payload) {
@@ -349,6 +358,8 @@ const app = {
   /* ── Consultar estado actual de la camioneta ─────────────── */
   async refreshStatus() {
     this.showScreen('screenLoadingStatus');
+    const hint = document.getElementById('loadingStatusHint');
+    const hintTimer = setTimeout(() => { if (hint) hint.classList.remove('hidden'); }, 3000);
     try {
       const data = await api.getStatus();
       state.vehicle = data;
@@ -361,6 +372,9 @@ const app = {
       state.vehicle = { success: false, enUso: false };
       this._renderStatusBanner(state.vehicle);
       this.showScreen('screenWelcome');
+    } finally {
+      clearTimeout(hintTimer);
+      if (hint) hint.classList.add('hidden');
     }
   },
 
