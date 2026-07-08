@@ -19,6 +19,8 @@ const ADMIN_CONFIG = {
   MAINTENANCE_SOON_KM: 500,    // aviso por kilometraje próximo a vencer
   MAINTENANCE_LABELS: { SERVICE: '🛠️ Service', ACEITE: '🛢️ Cambio de aceite', VTV: '🚦 VTV', SEGURO: '🛡️ Seguro', PATENTE: '🪪 Patente', OTRO: '📋 Otro' },
   INCIDENT_LABELS: { choque: '💥 Choque', rayon: '⚡ Rayón', desperfecto: '🔧 Desperfecto', multa: '🚔 Multa', otro: '❓ Otro' },
+  // Orden en que app.js sube las fotos obligatorias (ver CONFIG.REQUIRED_PHOTOS en app.js)
+  PHOTO_LABELS: ['Frente', 'Lateral izq.', 'Lateral der.', 'Trasera'],
 };
 
 /* ── Estado global ────────────────────────────────────────── */
@@ -518,7 +520,10 @@ const adminApp = {
         <td>${t.kmRecorridos ? t.kmRecorridos + ' km' : '—'}</td>
         <td>${t.tiempoUso || '—'}</td>
         <td>${t.huboInconveniente ? `<span class="badge badge-red" title="${t.descripcionInconveniente}">⚠️ ${ADMIN_CONFIG.INCIDENT_LABELS[t.tipoInconveniente]||t.tipoInconveniente}</span>` : '<span class="badge badge-green">✓</span>'}</td>
-        <td><div class="photo-thumb-row">${[...t.fotosRetiro, ...t.fotosDevolucion].slice(0,3).map(u => `<img src="${adminUtils.driveImgUrl(u,'w200')}" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`).join('')}</div></td>
+        <td><div class="photo-thumb-row">${[
+          ...t.fotosRetiro.slice(0,2).map(u => `<img src="${adminUtils.driveImgUrl(u,'w200')}" style="border:2px solid #22c55e;" title="Foto de retiro" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`),
+          ...t.fotosDevolucion.slice(0,2).map(u => `<img src="${adminUtils.driveImgUrl(u,'w200')}" style="border:2px solid #ef4444;" title="Foto de devolución" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`)
+        ].slice(0,3).join('')}</div></td>
         <td style="white-space:nowrap;">
           <button class="btn btn-ghost btn-sm" onclick="adminApp.openTripDetail('${t.id}')" title="Ver detalle">👁️</button>
           ${(t.gpsRetiro || t.gpsDevolucion) ? `<button class="btn btn-ghost btn-sm" onclick="adminApp.openMap('${t.id}')" title="Ver mapa">🗺️</button>` : ''}
@@ -555,11 +560,18 @@ const adminApp = {
         </div>` : `<div class="timeline-item"><div class="timeline-dot">⏳</div><div class="timeline-title">Aún no devuelta</div></div>`}
       </div>
       ${t.observaciones ? `<div class="mt-4"><div class="card-title">Observaciones</div><p style="font-size:var(--fs-sm);">${t.observaciones}</p></div>` : ''}
-      ${(t.fotosRetiro.length || t.fotosDevolucion.length) ? `
+      ${t.fotosRetiro.length ? `
       <div class="mt-4">
-        <div class="card-title">Fotos</div>
+        <div class="card-title">🟢 Fotos de retiro (${t.fotosRetiro.length})</div>
         <div class="photo-thumb-row" style="flex-wrap:wrap;gap:6px;">
-          ${[...t.fotosRetiro, ...t.fotosDevolucion].map(u => `<img src="${adminUtils.driveImgUrl(u,'w400')}" style="width:52px;height:52px;border-radius:8px;object-fit:cover;" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`).join('')}
+          ${t.fotosRetiro.map((u,i) => `<div style="text-align:center;"><img src="${adminUtils.driveImgUrl(u,'w400')}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;display:block;" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'"><span style="font-size:10px;color:var(--text-secondary,#888);">${ADMIN_CONFIG.PHOTO_LABELS[i] || 'Extra'}</span></div>`).join('')}
+        </div>
+      </div>` : ''}
+      ${t.fotosDevolucion.length ? `
+      <div class="mt-4">
+        <div class="card-title">🔴 Fotos de devolución (${t.fotosDevolucion.length})</div>
+        <div class="photo-thumb-row" style="flex-wrap:wrap;gap:6px;">
+          ${t.fotosDevolucion.map((u,i) => `<div style="text-align:center;"><img src="${adminUtils.driveImgUrl(u,'w400')}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;display:block;" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'"><span style="font-size:10px;color:var(--text-secondary,#888);">${ADMIN_CONFIG.PHOTO_LABELS[i] || 'Extra'}</span></div>`).join('')}
         </div>
       </div>` : ''}
     `;
