@@ -522,7 +522,7 @@ const adminApp = {
         <td>${t.huboInconveniente ? `<span class="badge badge-red" title="${t.descripcionInconveniente}">⚠️ ${ADMIN_CONFIG.INCIDENT_LABELS[t.tipoInconveniente]||t.tipoInconveniente}</span>` : '<span class="badge badge-green">✓</span>'}</td>
         <td><div class="photo-thumb-row">${[
           ...t.fotosRetiro.slice(0,2).map(u => `<img src="${adminUtils.driveImgUrl(u,'w200')}" style="border:2px solid #22c55e;" title="Foto de retiro" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`),
-          ...t.fotosDevolucion.slice(0,2).map(u => `<img src="${adminUtils.driveImgUrl(u,'w200')}" style="border:2px solid #ef4444;" title="Foto de devolución" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`)
+          ...t.fotosDevolucion.slice(0,2).map(u => `<img src="${adminUtils.driveImgUrl(u,'w200')}" style="border:2px solid #ef4444;" title="Foto del inconveniente" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'">`)
         ].slice(0,3).join('')}</div></td>
         <td style="white-space:nowrap;">
           <button class="btn btn-ghost btn-sm" onclick="adminApp.openTripDetail('${t.id}')" title="Ver detalle">👁️</button>
@@ -569,9 +569,9 @@ const adminApp = {
       </div>` : ''}
       ${t.fotosDevolucion.length ? `
       <div class="mt-4">
-        <div class="card-title">🔴 Fotos de devolución (${t.fotosDevolucion.length})</div>
+        <div class="card-title">📸 Fotos del inconveniente (${t.fotosDevolucion.length})</div>
         <div class="photo-thumb-row" style="flex-wrap:wrap;gap:6px;">
-          ${t.fotosDevolucion.map((u,i) => `<div style="text-align:center;"><img src="${adminUtils.driveImgUrl(u,'w400')}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;display:block;" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'"><span style="font-size:10px;color:var(--text-secondary,#888);">${ADMIN_CONFIG.PHOTO_LABELS[i] || 'Extra'}</span></div>`).join('')}
+          ${t.fotosDevolucion.map((u,i) => `<div style="text-align:center;"><img src="${adminUtils.driveImgUrl(u,'w400')}" style="width:64px;height:64px;border-radius:8px;object-fit:cover;display:block;" onclick="adminApp.openPhoto('${u}')" onerror="this.style.display='none'"><span style="font-size:10px;color:var(--text-secondary,#888);">Foto ${i+1}</span></div>`).join('')}
         </div>
       </div>` : ''}
     `;

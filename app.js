@@ -71,13 +71,8 @@ const CONFIG = {
     { key: 'botiquin',      icon: '⛑️', label: 'Botiquín' },
   ],
 
-  // ── FOTOS OBLIGATORIAS ────────────────────────────────────────
-  REQUIRED_PHOTOS: [
-    { key: 'frente',       icon: '🚐', label: 'Frente' },
-    { key: 'lateral_izq',  icon: '⬅️', label: 'Lateral izquierdo' },
-    { key: 'lateral_der',  icon: '➡️', label: 'Lateral derecho' },
-    { key: 'trasera',      icon: '🔙', label: 'Parte trasera' },
-  ],
+  // ── FOTOS DE INCIDENTE (opcionales, sólo si se informa un siniestro) ──
+  INCIDENT_MAX_PHOTOS: 3,
 
   // ── AVISO DE USO PROLONGADO (informativo, calculado en admin) ─
   EXPECTED_MAX_HOURS: 8,
@@ -109,7 +104,7 @@ const state = {
   // Checklist { golpes:true, ... }
   checklist: {},
 
-  // Fotos { frente: dataURL, lateral_izq: dataURL, ... , extra_1: dataURL }
+  // Fotos de incidente { incidente_1: dataURL, incidente_2: dataURL, ... } — opcional
   photos: {},
   extraPhotoCount: 0,
 
@@ -474,15 +469,12 @@ const app = {
     document.getElementById('kmInput').value = '';
     document.getElementById('observationInput').value = '';
     this._renderChecklist();
-    this._renderPhotoGrid();
+    this._renderIncidentPhotoGrid();
 
-    // Título dinámico del checklist / fotos / confirmar
+    // Título dinámico del checklist / confirmar
     const incidentCard = document.getElementById('incidentCard');
     incidentCard.style.display = state.flow === 'devolucion' ? '' : 'none';
     utils.setText('btnConfirmLabel', state.flow === 'devolucion' ? '✓ Devolver camioneta' : '✓ Retirar camioneta');
-    utils.setText('fotosSubtitle', state.flow === 'devolucion'
-      ? 'Volvé a fotografiar la unidad al devolverla.'
-      : 'Tomá las 4 fotos obligatorias. Podés agregar más si es necesario.');
   },
 
   _renderBlockedScreen(v) {
@@ -533,83 +525,7 @@ const app = {
     if (el) el.classList.toggle('checked', !!state.checklist[key]);
   },
 
-  /* ── PASO 3: Checklist → Fotos ────────────────────────────── */
-  goToFotos() {
-    this.showScreen('screenFotos');
-  },
-
-  _renderPhotoGrid() {
-    const grid = document.getElementById('photoGrid');
-    grid.innerHTML = CONFIG.REQUIRED_PHOTOS.map(p => this._photoSlotHTML(p.key, p.icon, p.label, true)).join('');
-    this._updatePhotoNextButton();
-  },
-
-  _photoSlotHTML(key, icon, label, required) {
-    return `
-      <div class="photo-slot" id="slot_${key}" onclick="app.capturePhoto('${key}')">
-        <span class="slot-icon">${icon}</span>
-        <span class="slot-label">${label}${required ? '<span class="slot-required"> *</span>' : ''}</span>
-      </div>
-    `;
-  },
-
-  addExtraPhotoSlot() {
-    state.extraPhotoCount++;
-    const key = `extra_${state.extraPhotoCount}`;
-    const grid = document.getElementById('photoGrid');
-    const wrap = document.createElement('div');
-    wrap.innerHTML = this._photoSlotHTML(key, '📷', 'Foto adicional', false);
-    grid.appendChild(wrap.firstElementChild);
-  },
-
-  capturePhoto(key) {
-    this._pendingPhotoKey = key;
-    const input = document.getElementById('hiddenPhotoInput');
-    input.value = '';
-    input.onchange = (e) => this._handlePhotoFile(e, key);
-    input.click();
-  },
-
-  _handlePhotoFile(e, key) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      state.photos[key] = ev.target.result;
-      this._paintPhotoSlot(key);
-      this._updatePhotoNextButton();
-    };
-    reader.readAsDataURL(file);
-  },
-
-  _paintPhotoSlot(key) {
-    const slot = document.getElementById(`slot_${key}`);
-    if (!slot) return;
-    slot.classList.add('filled');
-    slot.innerHTML = `
-      <img src="${state.photos[key]}" alt="${key}">
-      <span class="slot-badge">✓</span>
-      <button class="slot-remove" onclick="event.stopPropagation(); app.removePhoto('${key}')">✕</button>
-    `;
-  },
-
-  removePhoto(key) {
-    delete state.photos[key];
-    const slot = document.getElementById(`slot_${key}`);
-    if (slot) {
-      slot.classList.remove('filled');
-      const cfg = CONFIG.REQUIRED_PHOTOS.find(p => p.key === key);
-      slot.innerHTML = `<span class="slot-icon">${cfg ? cfg.icon : '📷'}</span><span class="slot-label">${cfg ? cfg.label + ' <span class="slot-required">*</span>' : 'Foto adicional'}</span>`;
-    }
-    this._updatePhotoNextButton();
-  },
-
-  _updatePhotoNextButton() {
-    const allRequired = CONFIG.REQUIRED_PHOTOS.every(p => !!state.photos[p.key]);
-    document.getElementById('btnFotosNext').disabled = !allRequired;
-  },
-
-  /* ── PASO 4: Fotos → Confirmar ────────────────────────────── */
+  /* ── PASO 3: Checklist → Confirmar ────────────────────────── */
   async goToConfirm() {
     this.showScreen('screenConfirm');
     signaturePad.init();
@@ -626,6 +542,47 @@ const app = {
     document.getElementById('btnIncidentYes').classList.toggle('active', value);
     document.getElementById('btnIncidentNo').classList.toggle('active', !value);
     document.getElementById('incidentDetail').classList.toggle('hidden', !value);
+    if (value) this._renderIncidentPhotoGrid();
+  },
+
+  /* ── Fotos del inconveniente (opcionales, sólo si hay siniestro) ── */
+  captureIncidentPhoto() {
+    if (Object.keys(state.photos).length >= CONFIG.INCIDENT_MAX_PHOTOS) return;
+    const input = document.getElementById('hiddenPhotoInput');
+    input.value = '';
+    input.onchange = (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        state.extraPhotoCount++;
+        const key = `incidente_${state.extraPhotoCount}`;
+        state.photos[key] = ev.target.result;
+        this._renderIncidentPhotoGrid();
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  },
+
+  removeIncidentPhoto(key) {
+    delete state.photos[key];
+    this._renderIncidentPhotoGrid();
+  },
+
+  _renderIncidentPhotoGrid() {
+    const grid = document.getElementById('incidentPhotoGrid');
+    if (!grid) return;
+    const keys = Object.keys(state.photos);
+    grid.innerHTML = keys.map(key => `
+      <div class="photo-slot filled">
+        <img src="${state.photos[key]}" alt="Foto del inconveniente">
+        <span class="slot-badge">✓</span>
+        <button class="slot-remove" onclick="event.stopPropagation(); app.removeIncidentPhoto('${key}')">✕</button>
+      </div>
+    `).join('');
+    const addBtn = document.getElementById('btnAddIncidentPhoto');
+    if (addBtn) addBtn.style.display = keys.length >= CONFIG.INCIDENT_MAX_PHOTOS ? 'none' : '';
   },
 
   clearSignature() { signaturePad.clear(); },
@@ -666,7 +623,7 @@ const app = {
       userAgent: navigator.userAgent,
     };
 
-    // Adjuntar fotos con prefijo photo_
+    // Adjuntar fotos del inconveniente (si las hay) con prefijo photo_
     Object.entries(state.photos).forEach(([k, v]) => { basePayload[`photo_${k}`] = v; });
 
     try {

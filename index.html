@@ -116,9 +116,7 @@
         <div class="step-line" id="stepLine1"></div>
         <div class="step" id="step2"><div class="step-dot">2</div><div class="step-label">Check</div></div>
         <div class="step-line" id="stepLine2"></div>
-        <div class="step" id="step3"><div class="step-dot">3</div><div class="step-label">Fotos</div></div>
-        <div class="step-line" id="stepLine3"></div>
-        <div class="step" id="step4"><div class="step-dot">4</div><div class="step-label">Confirmar</div></div>
+        <div class="step" id="step3"><div class="step-dot">3</div><div class="step-label">Confirmar</div></div>
       </div>
 
       <div class="card">
@@ -184,9 +182,7 @@
         <div class="step-line done"></div>
         <div class="step active" id="cstep2"><div class="step-dot">2</div><div class="step-label">Check</div></div>
         <div class="step-line" id="cstepLine2"></div>
-        <div class="step" id="cstep3"><div class="step-dot">3</div><div class="step-label">Fotos</div></div>
-        <div class="step-line" id="cstepLine3"></div>
-        <div class="step" id="cstep4"><div class="step-dot">4</div><div class="step-label">Confirmar</div></div>
+        <div class="step" id="cstep3"><div class="step-dot">3</div><div class="step-label">Confirmar</div></div>
       </div>
 
       <div class="card">
@@ -196,7 +192,7 @@
         </p>
         <div class="checklist" id="checklistContainer"><!-- generado por JS --></div>
 
-        <button class="btn btn-primary btn-full btn-lg mt-4" id="btnChecklistNext" onclick="app.goToFotos()">
+        <button class="btn btn-primary btn-full btn-lg mt-4" id="btnChecklistNext" onclick="app.goToConfirm()">
           Continuar
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
         </button>
@@ -205,41 +201,7 @@
     </section>
 
     <!-- ══════════════════════════════════════════════
-         PANTALLA 5 — FOTOS
-    ═══════════════════════════════════════════════ -->
-    <section class="screen" id="screenFotos">
-      <div class="steps">
-        <div class="step done"><div class="step-dot">✓</div><div class="step-label">Datos</div></div>
-        <div class="step-line done"></div>
-        <div class="step done"><div class="step-dot">✓</div><div class="step-label">Check</div></div>
-        <div class="step-line done"></div>
-        <div class="step active"><div class="step-dot">3</div><div class="step-label">Fotos</div></div>
-        <div class="step-line" id="fstepLine4"></div>
-        <div class="step" id="fstep4"><div class="step-dot">4</div><div class="step-label">Confirmar</div></div>
-      </div>
-
-      <div class="card">
-        <div class="card-title">Evidencia fotográfica</div>
-        <p style="font-size:var(--fs-sm); color:var(--text-secondary); margin-bottom:var(--space-2);" id="fotosSubtitle">
-          Tomá las 4 fotos obligatorias. Podés agregar más si es necesario.
-        </p>
-
-        <div class="photo-grid" id="photoGrid"><!-- generado por JS --></div>
-
-        <div class="photo-extra-add" onclick="app.addExtraPhotoSlot()">
-          ➕ Agregar otra foto (opcional)
-        </div>
-
-        <button class="btn btn-primary btn-full btn-lg mt-4" id="btnFotosNext" onclick="app.goToConfirm()" disabled>
-          Continuar
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </button>
-      </div>
-      <button class="btn btn-ghost w-full mt-4" onclick="app.goBack('screenChecklist')">← Volver</button>
-    </section>
-
-    <!-- ══════════════════════════════════════════════
-         PANTALLA 6 — CONFIRMAR (+ inconveniente si es devolución)
+         PANTALLA 5 — CONFIRMAR (+ inconveniente si es devolución)
     ═══════════════════════════════════════════════ -->
     <section class="screen" id="screenConfirm">
       <div class="steps">
@@ -247,9 +209,7 @@
         <div class="step-line done"></div>
         <div class="step done"><div class="step-dot">✓</div><div class="step-label">Check</div></div>
         <div class="step-line done"></div>
-        <div class="step done"><div class="step-dot">✓</div><div class="step-label">Fotos</div></div>
-        <div class="step-line done"></div>
-        <div class="step active"><div class="step-dot">4</div><div class="step-label">Confirmar</div></div>
+        <div class="step active"><div class="step-dot">3</div><div class="step-label">Confirmar</div></div>
       </div>
 
       <!-- Sólo en devolución -->
@@ -270,9 +230,16 @@
               <option value="otro">Otro</option>
             </select>
           </div>
-          <div class="form-group" style="margin-bottom:0;">
+          <div class="form-group">
             <label class="form-label" for="incidentDesc">Descripción</label>
             <textarea class="form-textarea" id="incidentDesc" placeholder="Describí lo ocurrido con el mayor detalle posible..."></textarea>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">📷 Fotos del inconveniente (opcional)</label>
+            <div class="photo-grid" id="incidentPhotoGrid"><!-- generado por JS --></div>
+            <div class="photo-extra-add" id="btnAddIncidentPhoto" onclick="app.captureIncidentPhoto()">
+              ➕ Agregar foto
+            </div>
           </div>
         </div>
       </div>
@@ -307,11 +274,11 @@
       <button class="btn btn-success btn-full btn-lg mt-4" id="btnConfirmSubmit" onclick="app.submitTrip()">
         <span id="btnConfirmLabel">✓ Confirmar</span>
       </button>
-      <button class="btn btn-ghost w-full mt-4" onclick="app.goBack('screenFotos')">← Volver</button>
+      <button class="btn btn-ghost w-full mt-4" onclick="app.goBack('screenChecklist')">← Volver</button>
     </section>
 
     <!-- ══════════════════════════════════════════════
-         PANTALLA 7 — ENVIANDO
+         PANTALLA 6 — ENVIANDO
     ═══════════════════════════════════════════════ -->
     <section class="screen" id="screenLoadingSubmit">
       <div class="loading-screen">
@@ -327,7 +294,7 @@
     </section>
 
     <!-- ══════════════════════════════════════════════
-         PANTALLA 8 — RESULTADO
+         PANTALLA 7 — RESULTADO
     ═══════════════════════════════════════════════ -->
     <section class="screen" id="screenResult">
       <div class="card">
@@ -352,6 +319,6 @@
   <!-- Inputs de archivo ocultos para captura de fotos -->
   <input type="file" id="hiddenPhotoInput" accept="image/*" capture="environment" style="display:none;">
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
