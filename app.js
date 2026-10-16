@@ -42,7 +42,7 @@ const CONFIG = {
       members: [
         'NICOLAS TRAUTMANN',
         'GENOVEVA JURADO',
-        'MATIAS MOSOVICH',
+        'MALENA NUCCI',
         'AYELEN VECCHIARELLI',
         'LUCAS ALVAREZ',
         'MAXIMILIANO SUAREZ',
@@ -51,7 +51,7 @@ const CONFIG = {
     {
       label: '🏗️ Obras',
       members: [
-        'NAHUEL BARRIOS',
+        'JUAN ARCILIO',
       ],
     },
   ],
