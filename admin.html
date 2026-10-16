@@ -110,9 +110,7 @@
         </div>
         <div id="vhDetails" style="margin-top:var(--space-3); display:none; font-size:var(--fs-sm); color:var(--text-secondary);"></div>
       </div>
-      <div id="vhActions" style="display:none;">
-        <button class="btn btn-warning btn-sm" onclick="adminApp.openManualClose()">🔒 Cerrar viaje manualmente</button>
-      </div>
+      <div id="vhActions" style="display:none; display:none; gap:var(--space-2); flex-wrap:wrap;"></div>
     </div>
   </div>
 
@@ -169,6 +167,11 @@
       <select class="filter-select" id="filterEmployee" onchange="adminApp.applyFilters()">
         <option value="">Todos los empleados</option>
       </select>
+      <select class="filter-select" id="filterVehicle" onchange="adminApp.applyFilters()">
+        <option value="">Todas las camionetas</option>
+        <option value="AF013YZ">Kangoo AF013YZ (Diesel)</option>
+        <option value="AH791KR">Kangoo AH791KR (Nafta)</option>
+      </select>
       <select class="filter-select" id="filterStatus" onchange="adminApp.applyFilters()">
         <option value="">Todos los estados</option>
         <option value="EN_USO">En uso</option>
@@ -187,6 +190,7 @@
         <thead>
           <tr>
             <th>Estado</th>
+            <th>Camioneta</th>
             <th>Empleado</th>
             <th>Retiro</th>
             <th>Devolución</th>
@@ -377,6 +381,6 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script src="admin.js?v=4"></script>
+<script src="admin.js?v=5"></script>
 </body>
 </html>

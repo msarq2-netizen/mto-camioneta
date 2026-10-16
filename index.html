@@ -64,10 +64,8 @@
       </div>
 
       <!-- Banner de estado -->
-      <div class="card card-sm" id="statusBanner" style="text-align:center; margin-bottom:var(--space-4);">
-        <span class="vehicle-status-dot available" id="statusDot"></span>
-        <span class="vehicle-badge-lg available" id="statusBadge">🟢 Disponible</span>
-        <div id="statusExtra" class="vehicle-inuse-details hidden"></div>
+      <div class="card card-sm" id="statusBanner" style="margin-bottom:var(--space-4);">
+        <div id="vehiclesList"><!-- generado por JS --></div>
       </div>
 
       <div class="card">
@@ -92,16 +90,11 @@
     <section class="screen" id="screenBlocked">
       <div class="card" style="text-align:center;">
         <div style="font-size:2.5rem; margin-bottom:var(--space-3);">🔴</div>
-        <h2 style="font-size:var(--fs-xl); font-weight:700; margin-bottom:var(--space-2);">Camioneta en uso</h2>
+        <h2 style="font-size:var(--fs-xl); font-weight:700; margin-bottom:var(--space-2);">Camionetas en uso</h2>
         <p style="font-size:var(--fs-sm); color:var(--text-secondary); margin-bottom:var(--space-5);">
-          No podés retirarla hasta que sea devuelta.
+          No hay ninguna disponible hasta que alguna sea devuelta.
         </p>
-        <div class="vehicle-inuse-details" style="margin-top:0;">
-          <div class="vehicle-inuse-row"><span class="key">👤 La tiene</span><span class="val" id="blockedEmployee">—</span></div>
-          <div class="vehicle-inuse-row"><span class="key">🕐 Hora de salida</span><span class="val" id="blockedTime">—</span></div>
-          <div class="vehicle-inuse-row"><span class="key">📍 Destino</span><span class="val" id="blockedDestino">—</span></div>
-          <div class="vehicle-inuse-row"><span class="key">⏱️ Tiempo transcurrido</span><span class="val" id="blockedElapsed">—</span></div>
-        </div>
+        <div id="blockedList" style="text-align:left;"><!-- generado por JS --></div>
       </div>
       <button class="btn btn-ghost w-full mt-4" onclick="app.goBack('screenWelcome')">← Volver</button>
     </section>
@@ -125,6 +118,10 @@
 
         <!-- Campos exclusivos de RETIRO -->
         <div id="retiroFields">
+          <div class="form-group">
+            <label class="form-label" for="vehicleSelect">🚐 Camioneta (dominio)</label>
+            <select class="form-select" id="vehicleSelect"></select>
+          </div>
           <div class="form-group">
             <label class="form-label" for="sectorInput">🏷️ Sector</label>
             <input type="text" class="form-input" id="sectorInput" placeholder="Ej: Mantenimiento" maxlength="60">
@@ -319,6 +316,6 @@
   <!-- Inputs de archivo ocultos para captura de fotos -->
   <input type="file" id="hiddenPhotoInput" accept="image/*" capture="environment" style="display:none;">
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 </body>
 </html>

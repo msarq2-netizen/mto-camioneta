@@ -21,6 +21,10 @@ const ADMIN_CONFIG = {
   INCIDENT_LABELS: { choque: '💥 Choque', rayon: '⚡ Rayón', desperfecto: '🔧 Desperfecto', multa: '🚔 Multa', otro: '❓ Otro' },
   // Orden en que app.js sube las fotos obligatorias (ver CONFIG.REQUIRED_PHOTOS en app.js)
   PHOTO_LABELS: ['Frente', 'Lateral izq.', 'Lateral der.', 'Trasera'],
+  VEHICLES: [
+    { plate: 'AF013YZ', label: 'Renault Kangoo AF013YZ (Diesel)' },
+    { plate: 'AH791KR', label: 'Renault Kangoo AH791KR (Nafta)' },
+  ],
 };
 
 /* ── Estado global ────────────────────────────────────────── */
@@ -136,6 +140,7 @@ const dataProcessor = {
       observaciones: row[32] || '',
       estadoRegistro: row[33] || 'CERRADO',
       cerradoPorAdmin: (row[36] || '').toUpperCase() === 'SI',
+      vehiculo: row[38] || '',
     };
   },
 
@@ -374,35 +379,41 @@ const adminApp = {
   },
 
   /* ── Hero de estado actual ────────────────────────────────── */
-  _getOpenTrip() { return adminState.trips.find(t => t.estadoRegistro === 'EN_USO'); },
+  _getOpenTrips() { return adminState.trips.filter(t => t.estadoRegistro === 'EN_USO'); },
 
   _renderVehicleHero() {
-    const open = this._getOpenTrip();
+    const openTrips = this._getOpenTrips();
     const badge = document.getElementById('vhBadge');
     const elapsed = document.getElementById('vhElapsed');
     const details = document.getElementById('vhDetails');
     const actions = document.getElementById('vhActions');
     if (!badge) return;
 
-    if (open) {
-      badge.className = 'vehicle-badge-lg inuse';
-      badge.textContent = '🔴 En uso';
-      const ms = Date.now() - (open.fechaRetiro ? open.fechaRetiro.getTime() : Date.now());
-      const hrs = ms / 3600000;
-      elapsed.style.display = '';
-      elapsed.className = `badge ${hrs > ADMIN_CONFIG.EXPECTED_MAX_HOURS ? 'badge-red' : 'badge-blue'}`;
-      elapsed.textContent = `⏱️ ${adminUtils.formatHoursMin(hrs)}`;
-      if (hrs > ADMIN_CONFIG.EXPECTED_MAX_HOURS) elapsed.textContent += ' — uso prolongado';
+    const fleet = ADMIN_CONFIG.VEHICLES;
+    const freeCount = fleet.filter(v => !openTrips.some(t => t.vehiculo === v.plate)).length;
+    elapsed.style.display = 'none';
+
+    if (openTrips.length) {
+      badge.className = `vehicle-badge-lg ${freeCount ? 'available' : 'inuse'}`;
+      badge.textContent = freeCount ? `🟢 ${freeCount} disponible · 🔴 ${openTrips.length} en uso` : '🔴 Todas en uso';
       details.style.display = '';
-      details.innerHTML = `👤 <b>${open.empleado}</b> · 📍 ${open.destino || '—'} · 🕐 Salió ${open.fechaRetiro ? open.fechaRetiro.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '—'} · 🧭 ${open.kmRetiro} km`;
-      actions.style.display = '';
-      adminState._openTripId = open.id;
+      details.innerHTML = openTrips.map(t => {
+        const hrs = (Date.now() - (t.fechaRetiro ? t.fechaRetiro.getTime() : Date.now())) / 3600000;
+        const long = hrs > ADMIN_CONFIG.EXPECTED_MAX_HOURS;
+        return `<div style="margin-bottom:6px;">🚐 <b>${t.vehiculo || 'Sin dominio'}</b> · 👤 <b>${t.empleado}</b> · 📍 ${t.destino || '—'} · 🕐 Salió ${t.fechaRetiro ? t.fechaRetiro.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '—'} · 🧭 ${t.kmRetiro} km · <span class="badge ${long ? 'badge-red' : 'badge-blue'}">⏱️ ${adminUtils.formatHoursMin(hrs)}${long ? ' — uso prolongado' : ''}</span></div>`;
+      }).join('');
+      const sig = openTrips.map(t => t.id).join(',');
+      if (actions.dataset.sig !== sig) {
+        actions.dataset.sig = sig;
+        actions.innerHTML = openTrips.map(t => `<button class="btn btn-warning btn-sm" onclick="adminApp.openManualClose('${t.id}')">🔒 Cerrar ${t.vehiculo || 'viaje'} manualmente</button>`).join('');
+      }
+      actions.style.display = 'flex';
     } else {
       badge.className = 'vehicle-badge-lg available';
-      badge.textContent = '🟢 Disponible';
-      elapsed.style.display = 'none';
+      badge.textContent = '🟢 Ambas disponibles';
       details.style.display = 'none';
       actions.style.display = 'none';
+      actions.dataset.sig = '';
     }
   },
 
@@ -468,12 +479,14 @@ const adminApp = {
     const search = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
     const emp = document.getElementById('filterEmployee')?.value || '';
     const status = document.getElementById('filterStatus')?.value || '';
+    const vehicle = document.getElementById('filterVehicle')?.value || '';
     const destino = (document.getElementById('filterDestino')?.value || '').toLowerCase().trim();
     const month = document.getElementById('filterMonth')?.value || '';
 
     adminState.filteredTrips = adminState.trips.filter(t => {
       if (emp && t.empleado !== emp) return false;
       if (status && t.estadoRegistro !== status) return false;
+      if (vehicle && t.vehiculo !== vehicle) return false;
       if (destino && !(t.destino||'').toLowerCase().includes(destino)) return false;
       if (month && adminUtils.monthKey(t.fechaRetiro) !== month) return false;
       if (search) {
@@ -486,7 +499,7 @@ const adminApp = {
   },
 
   clearFilters() {
-    ['searchInput','filterEmployee','filterStatus','filterDestino','filterMonth'].forEach(id => { const el = document.getElementById(id); if (el) el.value=''; });
+    ['searchInput','filterEmployee','filterVehicle','filterStatus','filterDestino','filterMonth'].forEach(id => { const el = document.getElementById(id); if (el) el.value=''; });
     adminState.filteredTrips = [...adminState.trips];
     this.renderRecordsTable();
   },
@@ -499,7 +512,7 @@ const adminApp = {
     count.textContent = `Mostrando ${trips.length} de ${adminState.trips.length} viajes`;
 
     if (trips.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:var(--space-8);color:var(--text-muted);">Sin registros para el filtro seleccionado.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:var(--space-8);color:var(--text-muted);">Sin registros para el filtro seleccionado.</td></tr>';
       return;
     }
 
@@ -508,6 +521,7 @@ const adminApp = {
     tbody.innerHTML = trips.slice(0, 500).map(t => `
       <tr>
         <td>${statusBadge[t.estadoRegistro] || t.estadoRegistro}</td>
+        <td style="white-space:nowrap;">${t.vehiculo ? `<span class="badge badge-blue">🚐 ${t.vehiculo}</span>` : '—'}</td>
         <td>
           <div style="display:flex;align-items:center;gap:8px;">
             <div style="width:26px;height:26px;border-radius:50%;background:var(--accent-gradient);display:grid;place-items:center;font-size:9px;font-weight:700;flex-shrink:0;">${adminUtils.getInitials(t.empleado)}</div>
@@ -601,7 +615,8 @@ const adminApp = {
   },
 
   /* ── Cierre manual ────────────────────────────────────────── */
-  openManualClose() {
+  openManualClose(tripId) {
+    if (tripId) adminState._openTripId = tripId;
     if (!adminState._openTripId) { adminToast.warning('No hay ningún viaje abierto.'); return; }
     document.getElementById('mcKm').value = '';
     document.getElementById('mcMotivo').value = '';

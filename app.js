@@ -17,7 +17,11 @@ const CONFIG = {
   // ── EMPRESA / UNIDAD ─────────────────────────────────────────
   COMPANY_NAME: 'MTO Servicios HVAC',
   VEHICLE_LABEL: 'Camioneta Service',
-  VEHICLE_PLATE: '', // ej. "AD 123 BB" — opcional, sólo informativo en UI
+  // Flota (debe coincidir con GS_CONFIG.VEHICLES en Codigo.gs)
+  VEHICLES: [
+    { plate: 'AF013YZ', label: 'Renault Kangoo AF013YZ (Diesel)' },
+    { plate: 'AH791KR', label: 'Renault Kangoo AH791KR (Nafta)' },
+  ],
 
   // ── EMPLEADOS (agrupados por sector, igual que mto-fichaje) ──
   EMPLOYEE_GROUPS: [
@@ -86,7 +90,8 @@ const CONFIG = {
 ──────────────────────────────────────────────────────────────── */
 const state = {
   currentScreen: 'screenLoadingStatus',
-  vehicle: null,        // estado actual de la camioneta (desde backend)
+  vehicle: null,        // estado de la flota (desde backend): { vehicles: [...] }
+  vehiclePlate: '',     // dominio de la camioneta del viaje actual
   flow: null,            // 'retiro' | 'devolucion'
   employee: null,
   employeeGroupLabel: null,
@@ -364,7 +369,7 @@ const app = {
       utils.log('error', 'Status fetch failed', err.message);
       toast.error('No se pudo conectar con el servidor. Verificá tu conexión.', 6000);
       // Modo degradado: permitir seguir igual asumiendo disponible, con aviso
-      state.vehicle = { success: false, enUso: false };
+      state.vehicle = { success: false, vehicles: CONFIG.VEHICLES.map(v => ({ plate: v.plate, label: v.label, enUso: false })) };
       this._renderStatusBanner(state.vehicle);
       this.showScreen('screenWelcome');
     } finally {
@@ -373,29 +378,27 @@ const app = {
     }
   },
 
-  _renderStatusBanner(data) {
-    const dot = document.getElementById('statusDot');
-    const badge = document.getElementById('statusBadge');
-    const extra = document.getElementById('statusExtra');
+  _fmtTime(iso) {
+    const d = iso ? new Date(iso) : null;
+    return d ? d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '—';
+  },
 
-    if (data.enUso) {
-      dot.className = 'vehicle-status-dot inuse';
-      badge.className = 'vehicle-badge-lg inuse';
-      badge.textContent = '🔴 En uso';
-      const salida = data.horaSalida ? new Date(data.horaSalida) : null;
-      extra.classList.remove('hidden');
-      extra.innerHTML = `
-        <div class="vehicle-inuse-row"><span class="key">👤 La tiene</span><span class="val">${data.empleado || '—'}</span></div>
-        <div class="vehicle-inuse-row"><span class="key">🕐 Desde</span><span class="val">${salida ? salida.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '—'}</span></div>
-        <div class="vehicle-inuse-row"><span class="key">📍 Destino</span><span class="val">${data.destino || '—'}</span></div>
-      `;
-    } else {
-      dot.className = 'vehicle-status-dot available';
-      badge.className = 'vehicle-badge-lg available';
-      badge.textContent = '🟢 Disponible';
-      extra.classList.add('hidden');
-      extra.innerHTML = '';
-    }
+  _renderStatusBanner(data) {
+    const list = document.getElementById('vehiclesList');
+    const vehicles = data.vehicles || [];
+    list.innerHTML = vehicles.map((v, i) => `
+      <div style="${i ? 'margin-top:var(--space-4); padding-top:var(--space-4); border-top:1px solid var(--border-subtle);' : ''}">
+        <div style="font-weight:700; font-size:var(--fs-sm); margin-bottom:var(--space-2);">🚐 ${v.label}</div>
+        <span class="vehicle-status-dot ${v.enUso ? 'inuse' : 'available'}"></span>
+        <span class="vehicle-badge-lg ${v.enUso ? 'inuse' : 'available'}">${v.enUso ? '🔴 En uso' : '🟢 Disponible'}</span>
+        ${v.enUso ? `
+        <div class="vehicle-inuse-details">
+          <div class="vehicle-inuse-row"><span class="key">👤 La tiene</span><span class="val">${v.empleado || '—'}</span></div>
+          <div class="vehicle-inuse-row"><span class="key">🕐 Desde</span><span class="val">${this._fmtTime(v.horaSalida)}</span></div>
+          <div class="vehicle-inuse-row"><span class="key">📍 Destino</span><span class="val">${v.destino || '—'}</span></div>
+        </div>` : ''}
+      </div>
+    `).join('');
   },
 
   /* ── Navegación ───────────────────────────────────────────── */
@@ -424,30 +427,39 @@ const app = {
     state.employee = employeeName;
     state.employeeGroupLabel = selectedOption.dataset.group;
 
-    const v = state.vehicle || {};
+    const vehicles = (state.vehicle && state.vehicle.vehicles) || [];
+    const mine = vehicles.find(x => x.enUso && x.empleado === employeeName);
+    const free = vehicles.filter(x => !x.enUso);
 
-    if (v.enUso && v.empleado === employeeName) {
-      // Devolución
+    if (mine) {
+      // Devolución de la camioneta que tiene este empleado
       state.flow = 'devolucion';
-      state.viajeId = v.viajeId;
-      state.km = v.kmRetiro || '';
+      state.viajeId = mine.viajeId;
+      state.vehiclePlate = mine.plate;
+      state.km = mine.kmRetiro || '';
       this._resetFormState();
       utils.setText('datosTitle', 'Devolver camioneta');
-      utils.setText('datosEmployeeLabel', `👤 ${employeeName}`);
+      utils.setText('datosEmployeeLabel', `👤 ${employeeName} · 🚐 ${mine.label}`);
       utils.hide('retiroFields');
-      document.getElementById('kmInput').placeholder = `Km al retirar: ${v.kmRetiro || '—'}`;
+      document.getElementById('kmInput').placeholder = `Km al retirar: ${mine.kmRetiro || '—'}`;
       this.showScreen('screenDatos');
 
-    } else if (v.enUso && v.empleado !== employeeName) {
-      // Bloqueado
-      this._renderBlockedScreen(v);
+    } else if (vehicles.length && free.length === 0) {
+      // Todas en uso → bloqueado
+      this._renderBlockedScreen(vehicles);
       this.showScreen('screenBlocked');
 
     } else {
-      // Retiro
+      // Retiro: elegir dominio entre las disponibles
       state.flow = 'retiro';
       state.viajeId = null;
+      state.vehiclePlate = '';
       this._resetFormState();
+      const vsel = document.getElementById('vehicleSelect');
+      const options = vehicles.length ? vehicles : CONFIG.VEHICLES;
+      vsel.innerHTML = '<option value="">— Elegí la camioneta —</option>' + options.map(x =>
+        `<option value="${x.plate}" ${x.enUso ? 'disabled' : ''}>${x.label}${x.enUso ? ' — EN USO' : ''}</option>`).join('');
+      if (free.length === 1) vsel.value = free[0].plate;
       utils.setText('datosTitle', 'Retirar camioneta');
       utils.setText('datosEmployeeLabel', `👤 ${employeeName}`);
       utils.show('retiroFields');
@@ -477,12 +489,18 @@ const app = {
     utils.setText('btnConfirmLabel', state.flow === 'devolucion' ? '✓ Devolver camioneta' : '✓ Retirar camioneta');
   },
 
-  _renderBlockedScreen(v) {
-    utils.setText('blockedEmployee', v.empleado || '—');
-    const salida = v.horaSalida ? new Date(v.horaSalida) : null;
-    utils.setText('blockedTime', salida ? salida.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' }) : '—');
-    utils.setText('blockedDestino', v.destino || '—');
-    utils.setText('blockedElapsed', salida ? utils.formatElapsed(Date.now() - salida.getTime()) : '—');
+  _renderBlockedScreen(vehicles) {
+    utils.setHTML('blockedList', vehicles.map(v => {
+      const salida = v.horaSalida ? new Date(v.horaSalida) : null;
+      return `
+        <div class="vehicle-inuse-details" style="margin-top:var(--space-3);">
+          <div style="font-weight:700; font-size:var(--fs-sm); margin-bottom:var(--space-2);">🚐 ${v.label}</div>
+          <div class="vehicle-inuse-row"><span class="key">👤 La tiene</span><span class="val">${v.empleado || '—'}</span></div>
+          <div class="vehicle-inuse-row"><span class="key">🕐 Hora de salida</span><span class="val">${this._fmtTime(v.horaSalida)}</span></div>
+          <div class="vehicle-inuse-row"><span class="key">📍 Destino</span><span class="val">${v.destino || '—'}</span></div>
+          <div class="vehicle-inuse-row"><span class="key">⏱️ Tiempo</span><span class="val">${salida ? utils.formatElapsed(Date.now() - salida.getTime()) : '—'}</span></div>
+        </div>`;
+    }).join(''));
   },
 
   /* ── PASO 2: Datos → Checklist ───────────────────────────── */
@@ -498,6 +516,14 @@ const app = {
       toast.error('Ingresá el kilometraje actual.');
       document.getElementById('kmInput').focus();
       return;
+    }
+    if (state.flow === 'retiro') {
+      state.vehiclePlate = document.getElementById('vehicleSelect').value;
+      if (!state.vehiclePlate) {
+        toast.error('Elegí la camioneta (dominio) que vas a retirar.');
+        document.getElementById('vehicleSelect').focus();
+        return;
+      }
     }
     if (state.flow === 'retiro' && !state.destino) {
       toast.error('Ingresá el destino del viaje.');
@@ -631,6 +657,7 @@ const app = {
       if (state.flow === 'retiro') {
         result = await api.send('retirar', {
           ...basePayload,
+          vehicle: state.vehiclePlate,
           sector: state.sector,
           destino: state.destino,
           motivo: state.motivo,
@@ -680,6 +707,7 @@ const app = {
       <p class="result-sub">${isDevolucion ? 'La unidad quedó disponible nuevamente.' : 'Buen viaje. Recordá devolverla al finalizar.'}</p>
       <div class="result-details">
         <div class="result-detail-row"><span class="key">👤 Empleado</span><span class="val">${state.employee}</span></div>
+        <div class="result-detail-row"><span class="key">🚐 Camioneta</span><span class="val">${state.vehiclePlate}</span></div>
         <div class="result-detail-row"><span class="key">🧭 Kilometraje</span><span class="val">${state.km}</span></div>
         <div class="result-detail-row"><span class="key">⛽ Combustible</span><span class="val">${state.fuel}</span></div>
         <div class="result-detail-row"><span class="key">🕐 Hora</span><span class="val">${utils.formatTime(now)}</span></div>
